@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/shared/Navbar";
 import QRPairingPanel from "@/components/shared/QRPairingPanel";
 import { useSession } from "@/contexts/SessionContext";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,24 +42,38 @@ export default function SessionSetup() {
   const [selectedApp, setSelectedApp] = useState("");
   const [localhostUrl, setLocalhostUrl] = useState("localhost:5173");
   const [resolution, setResolution] = useState("1080p");
-  const { createSession } = useSession();
+  const { createSession, setLocalStream } = useSession();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleStart = () => {
-    // Validate and sanitize inputs
-    const trimmedName = sessionName.trim().slice(0, 100);
-    const trimmedUrl = localhostUrl.trim().slice(0, 200);
-    
-    const source =
-      captureType === "window"
-        ? selectedApp
-        : captureType === "localhost"
-        ? trimmedUrl
-        : captureType === "region"
-        ? "Screen Region"
-        : "Entire Screen";
-    const session = createSession(trimmedName || `Preview — ${source}`, source);
-    navigate(`/view/${session.id}`);
+  const handleStart = async () => {
+    try {
+      if (captureType !== "localhost") {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        setLocalStream(stream);
+      }
+
+      const trimmedName = sessionName.trim().slice(0, 100);
+      const trimmedUrl = localhostUrl.trim().slice(0, 200);
+
+      const source =
+        captureType === "window"
+          ? selectedApp
+          : captureType === "localhost"
+            ? trimmedUrl
+            : captureType === "region"
+              ? "Screen Region"
+              : "Entire Screen";
+
+      const session = createSession(trimmedName || `Preview — ${source}`, source);
+      navigate(`/view/${session.id}`);
+    } catch (err) {
+      toast({
+        title: "Screen capture failed",
+        description: "Please allow screen recording permissions to start a session.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -96,14 +111,12 @@ export default function SessionSetup() {
                   <Label
                     key={t.id}
                     htmlFor={t.id}
-                    className={`flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all ${
-                      captureType === t.id ? "border-primary/40 bg-primary/5 shadow-glow" : "border-border hover:border-primary/20"
-                    }`}
+                    className={`flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all ${captureType === t.id ? "border-primary/40 bg-primary/5 shadow-glow" : "border-border hover:border-primary/20"
+                      }`}
                   >
                     <RadioGroupItem value={t.id} id={t.id} className="sr-only" />
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                      captureType === t.id ? "gradient-primary" : "bg-muted"
-                    }`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${captureType === t.id ? "gradient-primary" : "bg-muted"
+                      }`}>
                       <t.icon className={`h-5 w-5 ${captureType === t.id ? "text-primary-foreground" : "text-muted-foreground"}`} />
                     </div>
                     <div>

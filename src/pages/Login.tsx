@@ -39,6 +39,16 @@ const Login = () => {
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!email || !password) {
+            toast({
+                title: 'Missing fields',
+                description: 'Please enter both an email and a password to sign up.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
         setLoading(true);
 
         const { error } = await supabase.auth.signUp({

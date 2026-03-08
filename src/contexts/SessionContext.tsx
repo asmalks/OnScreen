@@ -5,7 +5,9 @@ interface SessionContextType {
   sessions: MockSession[];
   connectedDevices: ConnectedDevice[];
   activeSessionId: string | null;
+  localStream: MediaStream | null;
   setActiveSessionId: (id: string | null) => void;
+  setLocalStream: (stream: MediaStream | null) => void;
   createSession: (name: string, source: string) => MockSession;
 }
 
@@ -15,6 +17,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<MockSession[]>(mockSessions);
   const [connectedDevices] = useState<ConnectedDevice[]>(mockDevices);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
 
   const createSession = (name: string, source: string): MockSession => {
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -36,7 +39,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   return (
     <SessionContext.Provider
-      value={{ sessions, connectedDevices, activeSessionId, setActiveSessionId, createSession }}
+      value={{ sessions, connectedDevices, activeSessionId, localStream, setActiveSessionId, setLocalStream, createSession }}
     >
       {children}
     </SessionContext.Provider>
