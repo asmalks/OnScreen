@@ -15,7 +15,7 @@ export default function Navbar() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
             <Monitor className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold tracking-tight font-[Space_Grotesk]">DevPreview</span>
+          <span className="text-xl font-extrabold tracking-tight font-[Space_Grotesk] bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">OnScreen</span>
         </Link>
 
         {isLanding ? (

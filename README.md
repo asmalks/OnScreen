@@ -1,4 +1,4 @@
-# Dev Canvas Project
+# OnScreen Project
 
 This project is a React web application built with Vite and Tailwind CSS.
 
