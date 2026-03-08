@@ -42,6 +42,7 @@ export default function SessionSetup() {
   const [selectedApp, setSelectedApp] = useState("");
   const [localhostUrl, setLocalhostUrl] = useState("localhost:5173");
   const [resolution, setResolution] = useState("1080p");
+  const [pendingSessionId] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
   const { createSession, setLocalStream } = useSession();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ export default function SessionSetup() {
               ? "Screen Region"
               : "Entire Screen";
 
-      const session = createSession(trimmedName || `Preview — ${source}`, source);
+      const session = createSession(trimmedName || `Preview — ${source}`, source, pendingSessionId);
       navigate(`/view/${session.id}`);
     } catch (err) {
       toast({
@@ -188,7 +189,7 @@ export default function SessionSetup() {
                 <CardTitle className="text-base">Pair Device</CardTitle>
               </CardHeader>
               <CardContent className="flex justify-center">
-                <QRPairingPanel sessionId="NEW001" size={160} />
+                <QRPairingPanel sessionId={pendingSessionId} size={160} />
               </CardContent>
             </Card>
 

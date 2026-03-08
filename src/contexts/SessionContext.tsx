@@ -8,7 +8,7 @@ interface SessionContextType {
   localStream: MediaStream | null;
   setActiveSessionId: (id: string | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
-  createSession: (name: string, source: string) => MockSession;
+  createSession: (name: string, source: string, providedId?: string) => MockSession;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -19,8 +19,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
 
-  const createSession = (name: string, source: string): MockSession => {
-    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const createSession = (name: string, source: string, providedId?: string): MockSession => {
+    const id = providedId || Math.random().toString(36).substring(2, 8).toUpperCase();
     const newSession: MockSession = {
       id,
       name,
