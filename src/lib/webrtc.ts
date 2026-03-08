@@ -1,13 +1,19 @@
 import { supabase } from './supabase';
 
 const configuration: RTCConfiguration = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+    ],
 };
 
 export class WebRTCHost {
     private pc: RTCPeerConnection | null = null;
     private channel: ReturnType<typeof supabase.channel> | null = null;
     public stream: MediaStream | null = null;
+    private iceCandidatesQueue: RTCIceCandidateInit[] = [];
+    private remoteDescriptionSet = false;
 
     constructor(private sessionId: string, private onDeviceConnected: () => void) { }
 
@@ -18,8 +24,9 @@ export class WebRTCHost {
         this.channel.on('broadcast', { event: 'join' }, async (payload) => {
             console.log('Viewer joined!', payload);
             this.onDeviceConnected();
+            this.remoteDescriptionSet = false;
+            this.iceCandidatesQueue = [];
 
-            // Cleanup previous connection if multiple joins happen
             if (this.pc) this.pc.close();
 
             this.pc = new RTCPeerConnection(configuration);
@@ -44,12 +51,23 @@ export class WebRTCHost {
             console.log('Received answer:', payload);
             if (this.pc && payload.answer) {
                 await this.pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+                this.remoteDescriptionSet = true;
+
+                // Process any queued ICE candidates that arrived before the answer
+                for (const candidate of this.iceCandidatesQueue) {
+                    await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+                this.iceCandidatesQueue = [];
             }
         });
 
         this.channel.on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
             if (payload.from === 'viewer' && this.pc && payload.candidate) {
-                await this.pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                if (this.remoteDescriptionSet) {
+                    await this.pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                } else {
+                    this.iceCandidatesQueue.push(payload.candidate);
+                }
             }
         });
 
@@ -71,6 +89,8 @@ export class WebRTCViewer {
     private pc: RTCPeerConnection | null = null;
     private channel: ReturnType<typeof supabase.channel> | null = null;
     public onStream: ((stream: MediaStream) => void) | null = null;
+    private iceCandidatesQueue: RTCIceCandidateInit[] = [];
+    private remoteDescriptionSet = false;
 
     constructor(private sessionId: string) { }
 
@@ -79,6 +99,10 @@ export class WebRTCViewer {
 
         this.channel.on('broadcast', { event: 'offer' }, async ({ payload }) => {
             console.log('Received offer');
+            this.remoteDescriptionSet = false;
+            this.iceCandidatesQueue = [];
+
+            if (this.pc) this.pc.close();
             this.pc = new RTCPeerConnection(configuration);
 
             this.pc.ontrack = (event) => {
@@ -94,21 +118,34 @@ export class WebRTCViewer {
             };
 
             await this.pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+            this.remoteDescriptionSet = true;
+
             const answer = await this.pc.createAnswer();
             await this.pc.setLocalDescription(answer);
 
             this.channel?.send({ type: 'broadcast', event: 'answer', payload: { answer } });
+
+            // Process any queued ICE candidates that arrived before the offer
+            for (const candidate of this.iceCandidatesQueue) {
+                await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+            this.iceCandidatesQueue = [];
         });
 
         this.channel.on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
             if (payload.from === 'host' && this.pc && payload.candidate) {
-                await this.pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                if (this.remoteDescriptionSet) {
+                    await this.pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                } else {
+                    this.iceCandidatesQueue.push(payload.candidate);
+                }
             }
         });
 
         await this.channel.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 console.log(`Viewer subscribed to channel session-${this.sessionId}`);
+                // Tell the host we joined so they can create an offer
                 this.channel?.send({ type: 'broadcast', event: 'join', payload: {} });
             }
         });
