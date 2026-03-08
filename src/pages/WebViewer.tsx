@@ -28,6 +28,7 @@ export default function WebViewer() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState("Initializing...");
 
   useEffect(() => {
     if (localStream && sessionId) {
@@ -45,9 +46,13 @@ export default function WebViewer() {
     } else if (!localStream && sessionId) {
       // Viewer Mobile mode
       const viewer = new WebRTCViewer(sessionId);
+      viewer.onStatus = (status) => setConnectionStatus(status);
       viewer.onStream = (stream) => {
         setRemoteStream(stream);
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error("Playback failed:", e));
+        }
       };
       viewer.joinSession();
 
@@ -146,13 +151,13 @@ export default function WebViewer() {
                   ref={videoRef}
                   autoPlay
                   playsInline
-                  muted={!!localStream} // Mute if we are the host to avoid audio feedback
+                  muted={true} // Un-muted video frequently blocks autoplay on mobile Safari/Chrome without user interaction
                   className="w-full h-full object-contain"
                 />
                 {!localStream && !remoteStream && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 bg-black/80 z-10">
                     <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin mb-4" />
-                    <p className="text-sm font-medium">Connecting to Host...</p>
+                    <p className="text-sm font-medium">{connectionStatus}</p>
                   </div>
                 )}
                 {touchEnabled && (

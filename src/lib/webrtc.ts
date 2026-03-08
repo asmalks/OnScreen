@@ -79,9 +79,14 @@ export class WebRTCHost {
     }
 
     stopHosting() {
-        this.stream?.getTracks().forEach(track => track.stop());
-        this.pc?.close();
-        this.channel?.unsubscribe();
+        if (this.pc) {
+            this.pc.close();
+            this.pc = null;
+        }
+        if (this.channel) {
+            supabase.removeChannel(this.channel);
+            this.channel = null;
+        }
     }
 }
 
@@ -89,6 +94,7 @@ export class WebRTCViewer {
     private pc: RTCPeerConnection | null = null;
     private channel: ReturnType<typeof supabase.channel> | null = null;
     public onStream: ((stream: MediaStream) => void) | null = null;
+    public onStatus: ((status: string) => void) | null = null;
     private iceCandidatesQueue: RTCIceCandidateInit[] = [];
     private remoteDescriptionSet = false;
 
@@ -99,16 +105,20 @@ export class WebRTCViewer {
 
         this.channel.on('broadcast', { event: 'offer' }, async ({ payload }) => {
             console.log('Received offer');
+            this.onStatus?.("Checking Connection...");
             this.remoteDescriptionSet = false;
             this.iceCandidatesQueue = [];
 
             if (this.pc) this.pc.close();
             this.pc = new RTCPeerConnection(configuration);
 
+            const remoteStream = new MediaStream();
+
             this.pc.ontrack = (event) => {
-                if (event.streams && event.streams[0]) {
-                    this.onStream?.(event.streams[0]);
-                }
+                console.log('Track received!', event.track.kind);
+                remoteStream.addTrack(event.track);
+                this.onStream?.(remoteStream);
+                this.onStatus?.("Connected!");
             };
 
             this.pc.onicecandidate = (event) => {
@@ -145,6 +155,7 @@ export class WebRTCViewer {
         await this.channel.subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 console.log(`Viewer subscribed to channel session-${this.sessionId}`);
+                this.onStatus?.("Waiting for Host...");
                 // Tell the host we joined so they can create an offer
                 this.channel?.send({ type: 'broadcast', event: 'join', payload: {} });
             }
@@ -152,7 +163,13 @@ export class WebRTCViewer {
     }
 
     leaveSession() {
-        this.pc?.close();
-        this.channel?.unsubscribe();
+        if (this.pc) {
+            this.pc.close();
+            this.pc = null;
+        }
+        if (this.channel) {
+            supabase.removeChannel(this.channel);
+            this.channel = null;
+        }
     }
 }
