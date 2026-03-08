@@ -25,6 +25,14 @@ export default function WebViewer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [latency, setLatency] = useState(42);
   const [latencyHistory, setLatencyHistory] = useState<{ time: string; latency: number }[]>([]);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const addLog = (msg: string) => {
+    setDebugLogs(prev => {
+      const newLogs = [...prev, msg];
+      return newLogs.length > 5 ? newLogs.slice(-5) : newLogs;
+    });
+  };
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -35,7 +43,7 @@ export default function WebViewer() {
       // Host Desktop mode
       const host = new WebRTCHost(sessionId, () => {
         console.log("Device connected to WebRTC stream!");
-      });
+      }, addLog);
       host.startHosting(localStream);
 
       if (videoRef.current) {
@@ -47,6 +55,7 @@ export default function WebViewer() {
       // Viewer Mobile mode
       const viewer = new WebRTCViewer(sessionId);
       viewer.onStatus = (status) => setConnectionStatus(status);
+      viewer.onDebugLog = addLog;
       viewer.onStream = (stream) => {
         setRemoteStream(stream);
         if (videoRef.current) {
@@ -155,9 +164,14 @@ export default function WebViewer() {
                   className="w-full h-full object-contain"
                 />
                 {!localStream && !remoteStream && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 bg-black/80 z-10">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 bg-black/80 z-10 p-4">
                     <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin mb-4" />
-                    <p className="text-sm font-medium">{connectionStatus}</p>
+                    <p className="text-sm font-medium mb-4">{connectionStatus}</p>
+                    <div className="w-full max-w-xs space-y-1 text-left">
+                      {debugLogs.map((log, i) => (
+                        <p key={i} className="text-[10px] font-mono text-white/30 truncate">{log}</p>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {touchEnabled && (
